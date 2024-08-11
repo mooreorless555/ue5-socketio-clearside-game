@@ -1,0 +1,526 @@
+{
+	"asset":
+	{
+		"version": "2.0",
+		"generator": "Unreal Engine 5.4.3"
+	},
+	"scene": 0,
+	"accessors": [
+		{
+			"bufferView": 0,
+			"count": 11904,
+			"type": "SCALAR",
+			"componentType": 5123
+		},
+		{
+			"bufferView": 1,
+			"count": 2208,
+			"type": "VEC3",
+			"componentType": 5126,
+			"min": [ -40.9599991, -40.9599991, -40.9599991 ],
+			"max": [ 40.9599991, 40.9599991, 40.9599991 ]
+		},
+		{
+			"bufferView": 2,
+			"count": 2208,
+			"type": "VEC3",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 3,
+			"count": 2208,
+			"type": "VEC4",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 4,
+			"count": 2208,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 5,
+			"count": 2208,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 6,
+			"count": 11508,
+			"type": "SCALAR",
+			"componentType": 5123
+		},
+		{
+			"bufferView": 7,
+			"count": 2294,
+			"type": "VEC3",
+			"componentType": 5126,
+			"min": [ -0.278141975, -0.61981988, -0.518014967 ],
+			"max": [ 0.278141975, 0.61981988, 0.518014967 ]
+		},
+		{
+			"bufferView": 8,
+			"count": 2294,
+			"type": "VEC3",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 9,
+			"count": 2294,
+			"type": "VEC4",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 10,
+			"count": 2294,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 11,
+			"count": 36,
+			"type": "SCALAR",
+			"componentType": 5121
+		},
+		{
+			"bufferView": 12,
+			"count": 24,
+			"type": "VEC3",
+			"componentType": 5126,
+			"min": [ 0, 0, -0 ],
+			"max": [ 1, 1, 1 ]
+		},
+		{
+			"bufferView": 13,
+			"count": 24,
+			"type": "VEC3",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 14,
+			"count": 24,
+			"type": "VEC4",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 15,
+			"count": 24,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 16,
+			"count": 24,
+			"type": "VEC2",
+			"componentType": 5126
+		}
+	],
+	"buffers": [
+		{
+			"uri": "ThirdPersonMap.bin",
+			"byteLength": 281964
+		}
+	],
+	"bufferViews": [
+		{
+			"buffer": 0,
+			"byteLength": 23808,
+			"target": 34963
+		},
+		{
+			"buffer": 0,
+			"byteLength": 26496,
+			"byteOffset": 23808,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 26496,
+			"byteOffset": 50304,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 35328,
+			"byteOffset": 76800,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 17664,
+			"byteOffset": 112128,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 17664,
+			"byteOffset": 129792,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 23016,
+			"byteOffset": 147456,
+			"target": 34963
+		},
+		{
+			"buffer": 0,
+			"byteLength": 27528,
+			"byteOffset": 170472,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 27528,
+			"byteOffset": 198000,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 36704,
+			"byteOffset": 225528,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 18352,
+			"byteOffset": 262232,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 36,
+			"byteOffset": 280584,
+			"target": 34963
+		},
+		{
+			"buffer": 0,
+			"byteLength": 288,
+			"byteOffset": 280620,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 288,
+			"byteOffset": 280908,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 384,
+			"byteOffset": 281196,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 192,
+			"byteOffset": 281580,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 192,
+			"byteOffset": 281772,
+			"target": 34962
+		}
+	],
+	"images": [
+		{
+			"uri": "MI_PrototypeGrid_Gray_floor_BaseColor.png"
+		},
+		{
+			"uri": "MI_PrototypeGrid_Gray_wall_BaseColor.png"
+		}
+	],
+	"materials": [
+		{
+			"name": "M_SimpleSkyDome",
+			"pbrMetallicRoughness":
+			{
+				"baseColorFactor": [ 0, 0, 0, 1 ],
+				"metallicFactor": 0,
+				"roughnessFactor": 0.5
+			}
+		},
+		{
+			"name": "BasicShapeMaterial",
+			"pbrMetallicRoughness":
+			{
+				"baseColorFactor": [ 0.899999976, 0.899999976, 0.899999976, 1 ],
+				"metallicFactor": 0,
+				"roughnessFactor": 0.640699983
+			}
+		},
+		{
+			"name": "MI_PrototypeGrid_Gray_floor",
+			"pbrMetallicRoughness":
+			{
+				"baseColorTexture":
+				{
+					"index": 0
+				},
+				"metallicFactor": 0
+			}
+		},
+		{
+			"name": "MI_PrototypeGrid_Gray_wall",
+			"pbrMetallicRoughness":
+			{
+				"baseColorTexture":
+				{
+					"index": 1
+				},
+				"metallicFactor": 0
+			}
+		},
+		{
+			"name": "MI_PrototypeGrid_Gray_wall2",
+			"pbrMetallicRoughness":
+			{
+				"baseColorFactor": [ 1, 0, 1, 1 ],
+				"metallicFactor": 0
+			}
+		},
+		{
+			"name": "MI_PrototypeGrid_Gray_wall3",
+			"pbrMetallicRoughness":
+			{
+				"baseColorFactor": [ 1, 0, 1, 1 ],
+				"metallicFactor": 0
+			}
+		}
+	],
+	"meshes": [
+		{
+			"name": "SM_SkySphere",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 1,
+						"NORMAL": 2,
+						"TANGENT": 3,
+						"TEXCOORD_0": 4,
+						"TEXCOORD_1": 5
+					},
+					"indices": 0,
+					"material": 0
+				}
+			]
+		},
+		{
+			"name": "SM_ClearsideCharacter",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 7,
+						"NORMAL": 8,
+						"TANGENT": 9,
+						"TEXCOORD_0": 10
+					},
+					"indices": 6,
+					"material": 1
+				}
+			]
+		},
+		{
+			"name": "floor",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 12,
+						"NORMAL": 13,
+						"TANGENT": 14,
+						"TEXCOORD_0": 15,
+						"TEXCOORD_1": 16
+					},
+					"indices": 11,
+					"material": 2
+				}
+			]
+		},
+		{
+			"name": "wall",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 12,
+						"NORMAL": 13,
+						"TANGENT": 14,
+						"TEXCOORD_0": 15,
+						"TEXCOORD_1": 16
+					},
+					"indices": 11,
+					"material": 3
+				}
+			]
+		},
+		{
+			"name": "wall2",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 12,
+						"NORMAL": 13,
+						"TANGENT": 14,
+						"TEXCOORD_0": 15,
+						"TEXCOORD_1": 16
+					},
+					"indices": 11,
+					"material": 4
+				}
+			]
+		},
+		{
+			"name": "wall3",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 12,
+						"NORMAL": 13,
+						"TANGENT": 14,
+						"TEXCOORD_0": 15,
+						"TEXCOORD_1": 16
+					},
+					"indices": 11,
+					"material": 5
+				}
+			]
+		}
+	],
+	"nodes": [
+		{
+			"name": "Brush",
+			"translation": [ 2.29999995, 1.29999995, 0.699999988 ]
+		},
+		{
+			"name": "DefaultPhysicsVolume0"
+		},
+		{
+			"name": "PostProcessVolume",
+			"translation": [ 1, 5, 1 ]
+		},
+		{
+			"name": "PostProcessVolume2",
+			"translation": [ 12.1999998, 1, 11.6999998 ],
+			"scale": [ 12.0615559, 12.0903473, 12.0615559 ]
+		},
+		{
+			"name": "VolumetricCloud",
+			"translation": [ 0, 8.19999981, 0 ]
+		},
+		{
+			"name": "SkyAtmosphere",
+			"translation": [ 0, 10.1999998, 0 ]
+		},
+		{
+			"name": "SM_SkySphere",
+			"scale": [ 400, 400, 400 ],
+			"mesh": 0
+		},
+		{
+			"name": "PlayerStart2",
+			"translation": [ 15.0914507, 0.920126021, 5.32893133 ],
+			"rotation": [ -0, -0.707106829, 0, 0.707106829 ]
+		},
+		{
+			"name": "DirectionalLight",
+			"translation": [ 0, 9.19999981, 0 ],
+			"rotation": [ 0.12480472, -0.0012086645, -0.514017522, 0.848650992 ],
+			"scale": [ 2.5, 2.5, 2.5 ]
+		},
+		{
+			"name": "Merge",
+			"translation": [ 2.12205507e-08, 0.674629629, -0.00234399992 ],
+			"mesh": 1
+		},
+		{
+			"name": "ExponentialHeightFog",
+			"translation": [ -56, -68.5, -0.5 ]
+		},
+		{
+			"name": "floor",
+			"translation": [ 0, -0.5, 0 ],
+			"scale": [ 30, 0.5, 35 ],
+			"mesh": 2
+		},
+		{
+			"name": "SkyLight",
+			"translation": [ 0, 6.89999962, 0 ]
+		},
+		{
+			"name": "PlayerStart",
+			"translation": [ 9, 0.920126021, 11.0999994 ]
+		},
+		{
+			"name": "AbstractNavData-Default"
+		},
+		{
+			"name": "PlayerStart3",
+			"translation": [ 20.0841599, 0.920126021, 11.0999994 ],
+			"rotation": [ 0, 0.99619472, -0, 0.087155737 ]
+		},
+		{
+			"name": "wall",
+			"scale": [ 4.18511963, 6.12537766, 9.18514729 ],
+			"mesh": 3
+		},
+		{
+			"name": "wall2",
+			"translation": [ 25.7109413, 1.77224937e-08, 9.09494681e-15 ],
+			"scale": [ 4.18512011, 6.12537813, 2.96421242 ],
+			"mesh": 4
+		},
+		{
+			"name": "wall3",
+			"translation": [ 7.88192129, 2.0000007e-08, 17.3297195 ],
+			"scale": [ 11.0908508, 6.12537813, 2.96421194 ],
+			"mesh": 5
+		},
+		{
+			"name": "TargetPoint",
+			"translation": [ 1.46236706, 0.96946615, 33.5202522 ]
+		},
+		{
+			"name": "TargetPoint2",
+			"translation": [ 11.6012878, 0.96946615, 13.1394892 ]
+		},
+		{
+			"name": "NavMeshBoundsVolume",
+			"translation": [ 22.6251965, -4.70557326e-09, 15.4938889 ],
+			"scale": [ 23.3524895, 1, 23.3524895 ]
+		},
+		{
+			"name": "RecastNavMesh-Default"
+		}
+	],
+	"samplers": [
+		{
+			"minFilter": 9987,
+			"magFilter": 9729
+		}
+	],
+	"scenes": [
+		{
+			"name": "ThirdPersonMap",
+			"nodes": [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22 ]
+		}
+	],
+	"textures": [
+		{
+			"name": "MI_PrototypeGrid_Gray_floor_BaseColor",
+			"sampler": 0,
+			"source": 0
+		},
+		{
+			"name": "MI_PrototypeGrid_Gray_wall_BaseColor",
+			"sampler": 0,
+			"source": 1
+		}
+	]
+}

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Babylon.js Scene with NavMesh</title>
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+    <!-- Babylon.js CDN -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <!-- RecastJS CDN -->
+    <script src="https://cdn.babylonjs.com/recast.js"></script>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        // Function to create a matching Babylon box
+        function createMatchingBabylonBox(scene, id, extent, origin) {
+            // Create the box
+            const babylonBox = BABYLON.MeshBuilder.CreateBox(
+                id, {
+                    width: extent.x * 2,
+                    height: extent.y * 2,
+                    depth: extent.z * 2,
+                },
+                scene
+            );
+
+            // Set the position of the Babylon.js box to match the Unreal Engine box
+            babylonBox.position = origin;
+
+            // Optional: Add a material to make the box visible
+            const material = new BABYLON.StandardMaterial('boxMaterial', scene);
+            material.diffuseColor = new BABYLON.Color3(1, 1, 1); // Red color
+            babylonBox.material = material;
+
+            return babylonBox;
+        }
+
+        function getBabylonVector(x, y, z) {
+            return new BABYLON.Vector3(-x, z, y);
+        }
+
+        async function init() {
+
+            // Create a basic Babylon.js scene
+            const canvas = document.getElementById('renderCanvas'); // Get the canvas element
+            const engine = new BABYLON.Engine(canvas, true); // Generate the BABYLON 3D engine
+
+            const createScene = async function () {
+                const scene = new BABYLON.Scene(engine);
+
+                // Create a basic light, aiming 0,1,0 - meaning, to the sky
+                const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
+
+                // Create a free camera, and set its position to (x:0, y:5, z:-10)
+                const camera = new BABYLON.FreeCamera('camera1', new BABYLON.Vector3(-1000, 2000, -1000),
+                    scene);
+
+                // Attach the camera to the canvas
+                camera.attachControl(canvas, true);
+                camera.speed = 30;
+
+                /*          const boxExtent = new getBabylonVector(1500, 1750, 25);
+                         const boxOrigin = new getBabylonVector(1500, 1750, -25);
+                         const box1 = createMatchingBabylonBox(scene, 'box1', boxExtent, boxOrigin); */
+
+                // extent { x: 209.2559814453125, y: 459.2573642730713, z: 306.26888275146484 } 
+                // origin { x: 1365.2559814453125, y: 2577.2573642730713, z: 308.26888275146484 }
+
+                /*           const box2Extent = new getBabylonVector(209.2559814453125, 459.2573642730713, 306.26888275146484);
+                          const box2Origin = new getBabylonVector(209.2559814453125, 459.2573642730713, 306.26888275146484);
+                          const box2 = createMatchingBabylonBox(scene, 'box2', box2Extent, box2Origin); */
+
+                // extent  { x: 209.25599999999986, y: 148.21062088012695, z: 306.26890000000003 }
+                // origin { x: 2780.35031725368, y: 148.21062088012786, z: 306.2689017722495 }
+
+                /*           const box3Extent = new getBabylonVector(209.2559814453125, 148.21062088012695, 306.26890000000003);
+                          const box3Origin = new getBabylonVector(2780.35031725368, 148.21062088012786, 306.2689017722495);
+                          const box3 = createMatchingBabylonBox(scene, 'box3', box3Extent, box3Origin); */
+
+                // box4
+                // extent { x: 554.5425415039062, y: 148.21059999999989, z: 306.26890000000003 } 
+                // origin { x: 1342.7346709351084, y: 1881.1826479961478, z: 306.2689020000006 }
+
+                /*            const box4Extent = new getBabylonVector(554.5425415039062, 148.21059999999989, 306.26890000000003);
+                           const box4Origin = new getBabylonVector(1342.7346709351084, 1881.1826479961478, 306.2689020000006);
+                           const box4 = createMatchingBabylonBox(scene, 'box4', box4Extent, box4Origin); */
+
+                // Target the camera to scene origin
+                // camera.position.set(46, 1612, 154);
+                // camera.rotation.set(1.19, 1.26, 0)
+                camera.position.set(185, 1612, 336)
+                camera.rotation.set(0.5, -1, 0)
+
+                setInterval(() => {
+                    console.log(camera.position, camera.rotation);
+                }, 1000)
+
+                // Create a ground mesh
+                const ground = BABYLON.MeshBuilder.CreateGround('ground', {
+                    width: 1000,
+                    height: 1000
+                }, scene);
+
+                const obj = await BABYLON.SceneLoader.ImportMeshAsync("", "public/navmesh/",
+                    "thirdpersonmap.obj", scene);
+                // This function will be called after the OBJ file is loaded
+                console.log("OBJ file loaded successfully");
+
+                console.log(obj.meshes);
+
+                // You can manipulate the loaded meshes here if needed
+                obj.meshes.forEach(function (mesh) {
+                    // // For example, you might want to scale the mesh
+                    mesh.scaling = new BABYLON.Vector3(1, 1, 1);
+
+                    // // Or change its position
+                    // mesh.position = new BABYLON.Vector3(0, 0, 0);
+                });
+
+                // Set up the navigation mesh
+                await Recast();
+                const recast = new BABYLON.RecastJSPlugin();
+                const navMeshParameters = {
+                    cs: 10,
+                    ch: 10,
+                    walkableSlopeAngle: 60,
+                    walkableHeight: 10,
+                    walkableClimb: 20,
+                    walkableRadius: 5,
+                    maxEdgeLen: 100,
+                    maxSimplificationError: 1,
+                    minRegionArea: 8,
+                    mergeRegionArea: 2,
+                    maxVertsPerPoly: 3,
+                    detailSampleDist: 6,
+                    detailSampleMaxError: 1,
+                };
+
+                const [firstMesh, ...restMeshes] = obj.meshes;
+
+
+
+                recast.createNavMesh(
+                    restMeshes,
+                    navMeshParameters,
+                );
+
+                const navmeshDebug = recast.createDebugNavMesh(scene);
+                const matdebug = new BABYLON.StandardMaterial("matdebug", scene);
+                matdebug.diffuseColor = new BABYLON.Color3(0.1, 0.2, 1);
+                matdebug.alpha = 0.9;
+                navmeshDebug.material = matdebug;
+
+                console.log("Nav mesh is ready");
+
+
+                return {
+                    scene,
+                    recast,
+                    camera,
+                    restMeshes
+                };
+            };
+
+            const {
+                scene,
+                recast,
+                camera,
+                restMeshes
+            } = await createScene(); // Call the createScene function
+
+            // Now create the crowd
+            const crowd = recast.createCrowd(10, 200, scene);
+            var i;
+            var agentParams = {
+                radius: 100,
+                height: 100,
+                maxAcceleration: 1000.0,
+                maxSpeed: 1000.0,
+                collisionQueryRange: 300,
+                pathOptimizationRange: 0.0,
+                separationWeight: 1.0
+            };
+
+            for (i = 0; i < 3; i++) {
+                var width = 100;
+                var agentCube = BABYLON.MeshBuilder.CreateBox("cube", {
+                    size: width,
+                }, scene);
+                var matAgent = new BABYLON.StandardMaterial('mat2', scene);
+                var variation = Math.random();
+                matAgent.diffuseColor = new BABYLON.Color3(1, 0, 0);
+                agentCube.material = matAgent;
+                var randomPos = getBabylonVector(307, 1266, 200);
+                // agentCube.position.set(randomPos.x, randomPos.y, randomPos.z)
+                var transform = new BABYLON.TransformNode();
+                agentCube.parent = transform;
+                console.log("Point is: ", randomPos.x, randomPos.y, randomPos.z)
+                var agentIndex = crowd.addAgent(randomPos, agentParams, transform);
+                camera.setTarget(randomPos)
+            }
+
+
+
+
+            const destinationPoint = getIntersectedVector(restMeshes, getBabylonVector(894, 1888, 780))
+            var pathLine;
+
+            var agents = crowd.getAgents();
+            console.log({
+                agents
+            })
+            var i;
+            var randomPos = recast.getClosestPoint(destinationPoint);
+            for (i = 0; i < agents.length; i++) {
+                crowd.agentGoto(agents[i], randomPos);
+                console.log("Attempting move")
+            }
+
+            var pathPoints = recast.computePath(crowd.getAgentPosition(agents[0]), randomPos);
+            pathLine = BABYLON.MeshBuilder.CreateDashedLines("ribbon", {
+                points: pathPoints,
+                updatable: true,
+                instance: pathLine
+            }, scene);
+
+            // Register a render loop to repeatedly render the scene
+            engine.runRenderLoop(function () {
+                scene.render();
+            });
+
+            // Watch for browser/canvas resize events
+            window.addEventListener('resize', function () {
+                engine.resize();
+            });
+        }
+
+        init();
+
+
+        function getIntersectedVector(meshes, originalVector) {
+
+            // Create a downward ray from the vector
+            const ray = new BABYLON.Ray(
+                originalVector,
+                new BABYLON.Vector3(0, -1, 0) // Downward direction
+            );
+
+            // Track the nearest intersection
+            let nearestIntersection = null;
+            let nearestDistance = Number.MAX_VALUE;
+
+            // Iterate over each mesh in the OBJ file
+            meshes.forEach((mesh) => {
+                // Perform the intersection test for each mesh
+                const hit = mesh.intersects(ray, false);
+
+                if (hit.hit) {
+                    // Calculate distance from the original vector to the intersection point
+                    const distance = BABYLON.Vector3.Distance(originalVector, hit.pickedPoint);
+
+                    // Check if this is the nearest intersection
+                    if (distance < nearestDistance) {
+                        nearestDistance = distance;
+                        nearestIntersection = hit.pickedPoint;
+                    }
+                }
+            });
+
+            // If a nearest intersection was found
+            if (nearestIntersection) {
+                // Create a new vector with the same X, Z and the Y of the nearest intersection
+                const intersectedVector = new BABYLON.Vector3(
+                    originalVector.x,
+                    nearestIntersection.y,
+                    originalVector.z
+                );
+
+                console.log("Nearest Intersected Vector:", intersectedVector);
+
+                return new BABYLON.Vector3(intersectedVector.x, intersectedVector.y + 10, intersectedVector.z)
+            } else {
+                console.log("No intersection found on any mesh.");
+                return BABYLON.Vector3(0, 0, 0)
+            }
+        }
+    </script>
+</body>
+
+</html>
