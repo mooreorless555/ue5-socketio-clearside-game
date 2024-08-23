@@ -1,27 +1,66 @@
 import assert from 'assert';
 import { SocketIOType } from '../server';
 import { XYZ } from '../utils/types';
-import { Character } from './character';
-import { NavMeshAgent } from './world/navigation_mesh';
+import { Entity } from './entity';
+import { NavMeshAgent, NavMeshAgentMoveOptions } from './world/navigation_mesh';
 import { IntervalHandler } from './interval_handler';
 import { VectorBuilder } from './world/vector_builder';
 import * as BABYLON from '@babylonjs/core';
+import { Room } from './room';
+import { Socket } from 'socket.io';
+import { effect, Signal, signal } from '@preact/signals';
+import { CallFunctionOptions } from './socket_integrator';
+import { HealthComponent } from './components/health_component';
+
+export interface Weapon {
+  ammo: Signal<number>;
+  maxAmmo: Signal<number>;
+}
 
 /**
  * Represents a character on the server.
  * Provides movement and position utils.
  */
-export class Agent extends Character {
+export class Agent extends Entity {
   private navMeshAgent?: NavMeshAgent;
-  private intervalHandler = new IntervalHandler();
+  private room: Room;
 
-  constructor(
-    id: string,
-    private readonly io: SocketIOType,
-    private roomId: string
-  ) {
+  // Health information
+  private readonly healthComponent = new HealthComponent(this);
+
+  // Aiming information
+  protected leftHandRot = VectorBuilder.zero().asRollPitchYaw();
+  protected rightHandRot = VectorBuilder.zero().asRollPitchYaw();
+
+  // Glove information
+  private leftGlove: Weapon = {
+    ammo: signal(30),
+    maxAmmo: signal(30),
+  };
+  private rightGlove: Weapon = {
+    ammo: signal(30),
+    maxAmmo: signal(30),
+  };
+
+  constructor(id: string, room: Room) {
     super(id);
+    this.room = room;
     this.name = 'Agent';
+
+    // Handle health changes
+    this.healthComponent.onHealthChanged((health) => {
+      room.actions
+        .forEverybody()
+        .printToConsole(`${this.id} was damaged. New health: ${health}`);
+    });
+
+    // Register ammo events for agent.
+    effect(() => {
+      this.callFunction('SetLeftGloveAmmo', this.leftGlove.ammo.value);
+      this.callFunction('SetRightGloveAmmo', this.rightGlove.ammo.value);
+    });
+    // Register projectile hit events
+    this.registerOnProjectileHitEvent();
   }
 
   getNavMeshAgent() {
@@ -36,10 +75,14 @@ export class Agent extends Character {
     super.setPosition(x, y, z);
   }
 
+  setPositionTo(entity: Entity) {
+    this.setPosition(entity.x, entity.y, entity.z, true);
+  }
+
   setPosition(x: number, y: number, z: number, force: boolean = false) {
     super.setPosition(x, y, z);
     const event = force ? 'playerForcePosition' : 'playerPosition';
-    this.io.to(this.roomId).emit(event, {
+    this.room.emit(event, {
       id: this.id,
       x,
       y,
@@ -81,6 +124,7 @@ export class Agent extends Character {
 
   stop() {
     this.move(0, 0);
+    this.getNavMeshAgent().cancel();
   }
 
   strafeLeft(value: number = 1) {
@@ -95,46 +139,116 @@ export class Agent extends Character {
     this.broadcast('playerAttack', { id: this.id, attackType });
   }
 
+  getGameObject() {
+    return this.room.getWorld().getGameObjectById(this.id);
+  }
+
+  async shootLeftGlove() {
+    this.callFunction('ShootLeftGlove', undefined);
+    if (this.leftGlove.ammo.value > 0) {
+      this.room
+        .getWorld()
+        .createProjectile(this.getPosition(), this.leftHandRot, 3000, this);
+      this.leftGlove.ammo.value -= 1;
+    }
+  }
+
+  async shootRightGlove() {
+    this.callFunction('ShootRightGlove', undefined);
+    if (this.rightGlove.ammo.value > 0) {
+      this.room
+        .getWorld()
+        .createProjectile(this.getPosition(), this.rightHandRot, 3000, this);
+      this.rightGlove.ammo.value -= 1;
+    }
+  }
+
   rotate(x: number, y: number, z: number) {
     this.rotX = x;
     this.rotY = y;
     this.rotZ = z;
+    this.leftHandRot.roll = x;
+    this.leftHandRot.pitch = y;
+    this.leftHandRot.yaw = z;
+    this.rightHandRot.roll = x;
+    this.rightHandRot.pitch = y;
+    this.rightHandRot.yaw = z;
     this.broadcast('playerRotation', { id: this.id, x, y, z });
   }
 
-  aimAt(x: number, y: number, z: number) {
+  aimAt(entity: Entity) {
+    const { x, y, z } = entity.getPosition();
+    this.aimAtLocation(x, y, z);
+  }
+
+  aimAtLocation(x: number, y: number, z: number) {
+    const newLocation = VectorBuilder.fromCoords(x, y, z).asXYZ();
+    const agentPosition = this.getPosition();
+    // Check if newLocation is behind the agent
+    const lookAtRotation = VectorBuilder.fromXYZ(agentPosition)
+      .toLookAtRotation(newLocation)
+      .asRollPitchYaw();
+    if (Math.abs(lookAtRotation.yaw) > 50) {
+      this.rotateToLocation(x, y, z);
+    }
+    // Get look at rotation
+    const latRot = (xyz: XYZ) =>
+      VectorBuilder.fromXYZ(agentPosition)
+        .toLookAtRotation(xyz)
+        .asRollPitchYaw();
+    this.leftHandRot = latRot(newLocation);
+    this.rightHandRot = latRot(newLocation);
+
     this.broadcast('playerAimAt', { id: this.id, x, y, z });
   }
 
-  lookAt(x: number, y: number, z: number) {
+  lookAtLocation(x: number, y: number, z: number) {
     this.broadcast('playerLookAt', { id: this.id, x, y, z });
-    // this.rotate(0, 0, 300);
   }
 
-  navigate(destination: XYZ) {
+  lookAt(agent: Agent) {
+    const { x, y, z } = agent.getPosition();
+    this.lookAtLocation(x, y, z);
+  }
+
+  rotateTo(entity: Entity) {
+    const { x, y, z } = entity.getPosition();
+    this.rotateToLocation(x, y, z);
+  }
+
+  rotateToLocation(x: number, y: number, z: number) {
+    const target = VectorBuilder.fromCoords(x, y, z).asXYZ();
+    const source = this.getPosition();
+    const newRotation = VectorBuilder.fromXYZ(source)
+      .toLookAtRotation(target)
+      .asXYZ();
+
+    // Apply the rotation using the rotate function
+    // newRotation.x is pitch, newRotation.y is yaw, newRotation.z is roll
+    this.rotate(0, 0, newRotation.z);
+  }
+
+  async navigate(
+    destination: XYZ,
+    overrides: Partial<NavMeshAgentMoveOptions> = {}
+  ) {
     this.getNavMeshAgent().cancel();
-    this.getNavMeshAgent().move(
-      destination,
-      (position, velocity, nextTarget) => {
+    this.getNavMeshAgent().teleport(this.getPosition());
+    return this.getNavMeshAgent().move(destination, {
+      onTick: (position, velocity, nextTarget) => {
         this.setPositionNoEmission(position.x, position.y, position.z);
-        this.lookAt(nextTarget.x, nextTarget.y, nextTarget.z);
+        this.lookAtLocation(nextTarget.x, nextTarget.y, nextTarget.z);
         this.moveTo(position);
       },
-      (position, nextTarget) => {
-        // this.setPosition(position.x, position.y, position.z);
-        //     // console.log('Next target: ', nextTarget);
-        //   }
-      }
-    );
+      ...overrides,
+    });
   }
 
   navigateWithFocus(destination: XYZ, focus: () => XYZ) {
     this.getNavMeshAgent().cancel();
-    this.rotate(0, 0, 90);
     const currentRotation = this.getRotation();
-    this.getNavMeshAgent().move(
-      destination,
-      (position, velocity, nextTarget) => {
+    this.getNavMeshAgent().move(destination, {
+      onTick: (position, velocity, nextTarget) => {
         const currentPosition = VectorBuilder.fromXYZ(
           this.getPosition()
         ).asVector3();
@@ -160,30 +274,73 @@ export class Agent extends Character {
         );
 
         this.rotate(currentRotation.x, currentRotation.y, currentRotation.z);
-        this.aimAt(focus().x, focus().y, focus().z);
+        this.aimAtLocation(focus().x, focus().y, focus().z);
         this.move(localDirection.y, localDirection.x);
       },
-      (position, nextTarget) => {
-        this.setPosition(position.x, position.y, position.z);
-        // console.log('Next target: ', nextTarget);
-      },
-      () => this.stop()
-    );
+    });
   }
 
-  navigateTo(agent: Agent) {
-    this.navigate(agent.getPosition());
+  navigateTo(entity: Entity, overrides: Partial<NavMeshAgentMoveOptions> = {}) {
+    this.navigate(entity.getPosition(), overrides);
+  }
+
+  async patrolTo(entity: Entity) {
+    const initialPosition = this.getPosition();
+    await this.navigateTo(entity);
+    await this.navigate(initialPosition);
   }
 
   setNavMeshAgent(navMeshAgent: NavMeshAgent) {
     this.navMeshAgent = navMeshAgent;
   }
 
+  setLeftGloveAmmo(newAmmo: number) {
+    this.leftGlove.ammo.value = newAmmo;
+  }
+
+  setRightGloveAmmo(newAmmo: number) {
+    this.rightGlove.ammo.value = newAmmo;
+  }
+
+  launch(launchVelocity: XYZ) {
+    this.callFunction('DoLaunchCharacter', JSON.stringify(launchVelocity));
+  }
+
+  registerOnProjectileHitEvent() {
+    this.onHit(({ projectile }) => {
+      this.healthComponent.decreaseHealth(10);
+    });
+  }
+
+  setVariable(name: string, value: any) {
+    super.setEntityVariable(this.room, 'playerSetVariable', name, value);
+  }
+
+  callFunction<T>(
+    name: string,
+    arg: T,
+    overrides: Partial<CallFunctionOptions> = {}
+  ) {
+    super.callEntityFunction(
+      this.room,
+      'playerCallFunction',
+      name,
+      arg + '',
+      overrides
+    );
+  }
+
+  async sendUpdatesToSocket(socket: Socket) {
+    super.sendEntityUpdatesToSocket(socket, this.room);
+  }
+
   dispose() {
+    this.navMeshAgent?.cancel();
     this.intervalHandler.clear();
+    this.disposed$.next();
   }
 
   private broadcast(message: string, data: any) {
-    this.io.to(this.roomId).emit(message, data);
+    this.room.emit(message, data);
   }
 }

@@ -1,7 +1,8 @@
 import { Socket } from 'socket.io';
 import { SocketIOType } from '../server';
-import { Character } from './character';
+import { Entity } from './entity';
 import { Agent } from './agent';
+import { Room } from './room';
 
 export class Player extends Agent {
   iaMoveActionValueX: number = 0;
@@ -9,12 +10,8 @@ export class Player extends Agent {
   iaLookActionValueX: number = 0;
   iaLookActionValueY: number = 0;
 
-  constructor(
-    readonly socket: Socket,
-    private readonly io: SocketIOType,
-    private roomId: string
-  ) {
-    super(socket.id, io, roomId);
+  constructor(readonly socket: Socket, room: Room) {
+    super(socket.id, room);
     this.name = 'Player';
 
     // Handle look events
@@ -66,20 +63,37 @@ export class Player extends Agent {
           hry,
           hrz,
         };
+        this.leftHandRot.roll = result.lhrx;
+        this.leftHandRot.pitch = result.lhry;
+        this.leftHandRot.yaw = result.lhrz;
+        this.rightHandRot.roll = result.rhrx;
+        this.rightHandRot.pitch = result.rhry;
+        this.rightHandRot.yaw = result.rhrz;
         socket.broadcast.emit('playerAim', result);
       }
     );
     socket.on('playerShootLeft', () => {
-      socket.broadcast.emit('playerAttack', { id: this.id, attackType: 0 });
+      // socket.broadcast.emit('playerAttack', { id: this.id, attackType: 0 });
+      this.shootLeftGlove();
     });
     socket.on('playerShootRight', () => {
-      socket.broadcast.emit('playerAttack', { id: this.id, attackType: 1 });
+      // socket.broadcast.emit('playerAttack', { id: this.id, attackType: 1 });
+      this.shootRightGlove();
     });
+  }
+
+  async shootLeftGlove() {
+    super.shootLeftGlove();
+    this.callFunction('PlayShootCameraShake', '', { sockets: [this.socket] });
+  }
+
+  async shootRightGlove() {
+    super.shootRightGlove();
+    this.callFunction('PlayShootCameraShake', '', { sockets: [this.socket] });
   }
 
   async joinRoom(roomId: string) {
     await this.socket.join(roomId);
-    this.roomId = roomId;
   }
 
   toJson() {

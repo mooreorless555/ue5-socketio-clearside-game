@@ -13,6 +13,8 @@ import {
   Subject,
   takeUntil,
 } from 'rxjs';
+import * as workerpool from 'workerpool';
+import { loadObjMesh } from './load_obj_mesh';
 
 export class NavigationMesh {
   private readonly navigationPlugin = new BABYLON.RecastJSPlugin();
@@ -24,15 +26,23 @@ export class NavigationMesh {
 
   constructor(private readonly scene: BABYLON.Scene) {}
 
+  private createNavMesh(meshes: BABYLON.Mesh[]) {
+    this.navigationPlugin.createNavMesh(
+      meshes as BABYLON.Mesh[],
+      NAV_MESH_PARAMETERS
+    );
+  }
+
   public async init(filename: string) {
-    const meshes = await this.loadObjMesh(`public/navmesh/${filename}`);
+    const meshes = await loadObjMesh(
+      `public/navmesh/${filename}.babylon`,
+      this.scene.getEngine()
+    );
     // Including the first mesh causes a memory out of bounds
     // error when constructing the static mesh.
     const [, ...restMeshes] = meshes;
-    this.navigationPlugin.createNavMesh(
-      restMeshes as BABYLON.Mesh[],
-      NAV_MESH_PARAMETERS
-    );
+
+    this.createNavMesh(restMeshes as BABYLON.Mesh[]);
     this.meshes = restMeshes as BABYLON.Mesh[];
     this.crowd = this.navigationPlugin.createCrowd(10, 200, this.scene);
     this.isLoaded = true;
@@ -48,7 +58,7 @@ export class NavigationMesh {
     const agentCube = BABYLON.MeshBuilder.CreateBox(
       'cube',
       {
-        size: 400,
+        size: 100,
       },
       this.scene
     );
@@ -71,30 +81,6 @@ export class NavigationMesh {
 
     const navMeshAgent = new NavMeshAgent(this.crowd, this.meshes, agentIndex);
     return navMeshAgent;
-  }
-
-  private async loadObjMesh(filename: string): Promise<BABYLON.AbstractMesh[]> {
-    return new Promise(async (resolve) => {
-      const onError = (err) => {
-        console.error('Mesh loading error.');
-        resolve([]);
-      };
-      const onSuccess: BABYLON.SceneLoaderSuccessCallback = (meshes) => {
-        resolve(meshes);
-      };
-      const file = await readFile(filename, 'utf8');
-      const objString = `data: ${file}`;
-      BABYLON.SceneLoader.ImportMesh(
-        '',
-        '',
-        objString,
-        this.scene,
-        onSuccess,
-        undefined,
-        onError,
-        '.obj'
-      );
-    });
   }
 }
 
@@ -129,6 +115,12 @@ const AGENT_PARAMETERS: BABYLON.IAgentParameters = {
   separationWeight: 1.0,
 };
 
+export interface NavMeshAgentMoveOptions {
+  acceptableDistance: number;
+  onTick: (position: XYZ, velocity: XYZ, nextTarget: XYZ) => void;
+  onNextTarget: (position: XYZ, nextTarget: XYZ) => void;
+}
+
 export class NavMeshAgent {
   complete$ = new Subject<void>();
 
@@ -150,87 +142,103 @@ export class NavMeshAgent {
     this.crowd.agentTeleport(this.agentIndex, babylonVector);
   }
 
-  move(
-    destination: XYZ,
-    onTick: (position: XYZ, velocity: XYZ, nextTarget: XYZ) => void,
-    onNextTarget: (position: XYZ, nextTarget: XYZ) => void,
-    onDone?: () => void
-  ) {
-    const babylonVector = VectorBuilder.fromXYZ(destination)
-      .toBabylon()
-      .toIntersectWithMesh(this.meshes)
-      .asVector3();
-
-    console.log('Destination: ', babylonVector);
-    this.crowd.agentGoto(this.agentIndex, babylonVector);
-
-    const getVectors = () => {
-      const velocity = this.crowd.getAgentVelocity(this.agentIndex);
-      const position = this.crowd.getAgentPosition(this.agentIndex);
-      const nextTarget = this.crowd.getAgentNextTargetPath(this.agentIndex);
-
-      const unrealPositionVector = VectorBuilder.fromBabylon(position)
-        .toUnreal()
-        .asXYZ();
-      const unrealVelocityVector = VectorBuilder.fromBabylon(velocity)
-        .toUnreal()
-        .asXYZ();
-
-      const unrealNextTargetVector = VectorBuilder.fromBabylon(nextTarget)
-        .toUnreal()
-        .asXYZ();
-
-      return {
-        unrealNextTargetVector,
-        unrealVelocityVector,
-        unrealPositionVector,
-      };
+  async move(destination: XYZ, overrides: Partial<NavMeshAgentMoveOptions>) {
+    const options = {
+      acceptableDistance: 100,
+      onTick: () => {},
+      onNextTarget: () => {},
+      ...overrides,
     };
 
-    interval(1000 / 60)
-      .pipe(
-        takeUntil(this.complete$),
-        map(() => this.crowd.getAgentNextTargetPath(this.agentIndex)),
-        map((vector) => VectorBuilder.fromBabylon(vector).toString()),
-        distinctUntilChanged()
-      )
-      .subscribe(() => {
-        const { unrealPositionVector, unrealNextTargetVector } = getVectors();
-        onNextTarget(unrealPositionVector, unrealNextTargetVector);
-      });
+    const isWithinAcceptableDistance =
+      BABYLON.Vector3.Distance(
+        this.crowd.getAgentPosition(this.agentIndex),
+        VectorBuilder.fromXYZ(destination).asVector3()
+      ) <= options.acceptableDistance;
 
-    interval(1000 / 60)
-      .pipe(takeUntil(this.complete$))
-      .subscribe(() => {
-        const { unrealPositionVector } = getVectors();
-        const currentPosition =
-          VectorBuilder.fromXYZ(unrealPositionVector).asVector3();
-        const destinationVec3 = VectorBuilder.fromXYZ(destination).asVector3();
-        if (BABYLON.Vector3.Distance(currentPosition, destinationVec3) < 100) {
-          this.complete$.next();
-        }
-      });
+    if (isWithinAcceptableDistance) {
+      return Promise.resolve(true);
+    }
 
-    interval(1000 / 60)
-      .pipe(takeUntil(this.complete$))
-      .subscribe(() => {
-        const {
-          unrealPositionVector,
-          unrealVelocityVector,
+    return new Promise((resolve) => {
+      const babylonVector = VectorBuilder.fromXYZ(destination)
+        .toBabylon()
+        .toIntersectWithMesh(this.meshes)
+        .asVector3();
+
+      console.log('Destination: ', babylonVector);
+      this.crowd.agentGoto(this.agentIndex, babylonVector);
+
+      const getVectors = () => {
+        const velocity = this.crowd.getAgentVelocity(this.agentIndex);
+        const position = this.crowd.getAgentPosition(this.agentIndex);
+        const nextTarget = this.crowd.getAgentNextTargetPath(this.agentIndex);
+
+        const unrealPositionVector = VectorBuilder.fromBabylon(position)
+          .toUnreal()
+          .asXYZ();
+        const unrealVelocityVector = VectorBuilder.fromBabylon(velocity)
+          .toUnreal()
+          .asXYZ();
+
+        const unrealNextTargetVector = VectorBuilder.fromBabylon(nextTarget)
+          .toUnreal()
+          .asXYZ();
+
+        return {
           unrealNextTargetVector,
-        } = getVectors();
-
-        onTick(
-          unrealPositionVector,
           unrealVelocityVector,
-          unrealNextTargetVector
-        );
-      });
+          unrealPositionVector,
+        };
+      };
 
-    this.complete$.pipe(first()).subscribe(() => {
-      if (onDone) {
-        onDone();
-      }
+      interval(1000 / 60)
+        .pipe(
+          takeUntil(this.complete$),
+          map(() => this.crowd.getAgentNextTargetPath(this.agentIndex)),
+          map((vector) => VectorBuilder.fromBabylon(vector).toString()),
+          distinctUntilChanged()
+        )
+        .subscribe(() => {
+          const { unrealPositionVector, unrealNextTargetVector } = getVectors();
+          options.onNextTarget(unrealPositionVector, unrealNextTargetVector);
+        });
+
+      interval(1000 / 60)
+        .pipe(takeUntil(this.complete$))
+        .subscribe(() => {
+          const { unrealPositionVector } = getVectors();
+          const currentPosition =
+            VectorBuilder.fromXYZ(unrealPositionVector).asVector3();
+          const destinationVec3 =
+            VectorBuilder.fromXYZ(destination).asVector3();
+          if (
+            BABYLON.Vector3.Distance(currentPosition, destinationVec3) <
+            options.acceptableDistance
+          ) {
+            this.complete$.next();
+          }
+        });
+
+      interval(1000 / 60)
+        .pipe(takeUntil(this.complete$))
+        .subscribe(() => {
+          const {
+            unrealPositionVector,
+            unrealVelocityVector,
+            unrealNextTargetVector,
+          } = getVectors();
+
+          options.onTick(
+            unrealPositionVector,
+            unrealVelocityVector,
+            unrealNextTargetVector
+          );
+        });
+
+      this.complete$.subscribe(() => {
+        resolve(true);
+      });
     });
   }
 }

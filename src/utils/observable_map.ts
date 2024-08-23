@@ -78,6 +78,10 @@ export class ObservableMap<K, V> extends Map<K, V> {
     this.removeCallbacks.push(callback);
   }
 
+  getArrayValues() {
+    return [...this.values()];
+  }
+
   private executeOnAddCallbacks(key: K, value: V) {
     this.addCallbacks.forEach((callback) => callback(key, value));
   }

@@ -3,3 +3,11 @@ export interface XYZ {
   y: number;
   z: number;
 }
+
+export interface RollPitchYaw {
+  roll: number;
+  pitch: number;
+  yaw: number;
+}
+
+export type Callback<T> = (value: T) => void;

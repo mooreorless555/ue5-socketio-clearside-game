@@ -3,29 +3,61 @@ import { SocketIOType } from '../server';
 import { ObservableMap } from '../utils/observable_map';
 import { Player } from './player';
 import { World } from './world/world';
-import { RoomActions } from './room_actions';
 import { Agent } from './agent';
 import assert from 'assert';
 import { IntervalHandler } from './interval_handler';
 import { wait } from '../utils/wait';
 import { VectorBuilder } from './world/vector_builder';
 import * as BABYLON from '@babylonjs/core';
+import { Entity } from './entity';
+import waitUntil from 'async-wait-until';
+import { randomElement } from '../utils/random';
+import { TriggerBox } from './game_objects/trigger_box';
+import { GAME_OBJECTS } from './game_objects/repository';
+import { CallFunctionOptions, SocketIntegrator } from './socket_integrator';
+import { ReloadBox } from './game_objects/reload_box';
+import { ServerActions } from './room_actions/server_actions';
+import { ScriptManager } from './script_manager';
+import { waitUntilTrue } from '../utils/fallback';
+
+export interface RoomOptions {
+  mapScriptName: string;
+}
 
 type EventHandler = (data: any, socket: Socket) => void;
 
 export class Room {
   private eventHandlers = new Map<string, EventHandler[]>();
   private world?: World;
-  private actions: RoomActions = new RoomActions(this);
+  readonly actions = new ServerActions(this);
   private intervalHandler = new IntervalHandler();
+  private readonly socketIntegrator = new SocketIntegrator(this.roomId);
+
+  private readonly scriptManager = new ScriptManager();
 
   private host: Player;
 
   readonly agents = new ObservableMap<string, Agent>();
   readonly players = new ObservableMap<string, Player>();
 
-  constructor(readonly roomId: string, readonly io: SocketIOType) {
+  loadMapScriptIfPresent() {
+    // Load map script name if present
+    if (this.options?.mapScriptName) {
+      this.scriptManager.runScript<Room>(
+        `./scripts/maps/${this.options.mapScriptName}`,
+        this
+      );
+    }
+  }
+
+  constructor(
+    readonly roomId: string,
+    readonly io: SocketIOType,
+    private readonly options: RoomOptions
+  ) {
     this.agents.onAdd(async (key, addedAgent) => {
+      await this.waitUntilWorldInitialized();
+
       // Emit agentAdded for all players
       this.players.forEach((player) => {
         player.socket.emit('playerAdded', {
@@ -43,7 +75,15 @@ export class Room {
       });
     });
 
-    this.players.onAdd((key, addedPlayer) => {
+    this.players.onAdd(async (key, addedPlayer) => {
+      // If it's the first player added, initialize the world.
+      if (this.players.size === 1) {
+        this.host = addedPlayer;
+        this.initializeAsHost(addedPlayer);
+        this.initializeGameWorld(addedPlayer.socket);
+        this.loadMapScriptIfPresent();
+      }
+
       // Emit playerAdded for the newly added player.
       this.emitToEachPlayer('playerAdded', (player) => {
         return {
@@ -52,12 +92,15 @@ export class Room {
         };
       });
 
-      // Move the new player
-      addedPlayer.setPosition(
-        600 + Math.random() * 400,
-        600 + Math.random() * 400,
-        300
-      );
+      await this.waitUntilWorldInitialized();
+
+      const playerStarts = await this.getWorld().getPlayerStarts();
+      const playerStart = randomElement(playerStarts);
+
+      // Move the new player to a player start.
+      addedPlayer.setPositionTo(playerStart);
+      const { x, y, z } = playerStart.getRotation();
+      addedPlayer.rotate(x, y, z);
 
       // Retroactively add the players already in the room for the added player.
       this.players.forEach((player) => {
@@ -68,6 +111,9 @@ export class Room {
         });
       });
 
+      // Retroactively emit room updates for player
+      this.socketIntegrator.sendUpdatesToSocket(addedPlayer.socket, this);
+
       // Add AI agents currently in the room.
       this.agents.forEach((agent) => {
         addedPlayer.socket.emit('playerAdded', agent.toJson());
@@ -76,6 +122,11 @@ export class Room {
       // Set up a disconnect handler for the new player.
       addedPlayer.socket.on('disconnect', () => {
         this.players.delete(addedPlayer.socket.id);
+      });
+
+      // Handle hit events received from client
+      addedPlayer.socket.on('hitEvent', ({ owner, position }) => {
+        console.log('HIT EVENT: ', owner, position);
       });
 
       // Handle server authority comparison events
@@ -98,38 +149,17 @@ export class Room {
         }
       });
 
-      // If it's the first player added, initialize the world.
-      if (this.players.size === 1) {
-        this.host = addedPlayer;
-        this.initializeAsHost(addedPlayer);
-        this.initializeGameWorld(addedPlayer.socket);
-        this.log('Looking...');
-        this.intervalHandler.setTimeout(async () => {
-          //   addedPlayer.aimAt(30, 0, 0);
-          const a = await this.actions.spawnEnemy();
-          this.intervalHandler.setTimeout(() => {
-            a.navigateWithFocus(
-              {
-                x: 937.1508678935422,
-                y: 1856.820725791315,
-                z: 673.4644661682231,
-              },
-              () => addedPlayer.getPosition()
-            );
-
-            this.intervalHandler.setInterval(() => {
-              a.attack();
-            }, 800);
-            // this.intervalHandler.setInterval(() => {
-            //   a.navigate(addedPlayer.getPosition());
-            // }, 500);
-            this.log('MOVING!!');
-          });
+      // Emit game object updates retroactively.
+      this.getWorld()
+        .getAllGameObjects()
+        .forEach((gameObject) => {
+          gameObject.sendUpdatesToSocket(addedPlayer.socket);
         });
 
-        //   a.moveForwards(0.3);
-        //   a.navigate({ x: 894, y: 1888, z: 649 });
-      }
+      // Emit player updates retroactively
+      this.players.forEach((player) => {
+        player.sendUpdatesToSocket(addedPlayer.socket);
+      });
     });
 
     this.players.onRemove((key, player) => {
@@ -163,9 +193,13 @@ export class Room {
 
   private initializeGameWorld(socket: Socket) {
     this.log('Initializing game world...');
+    this.callFunction('InitializeGameWorld', '', { sockets: [socket] });
     this.world = new World(socket, this);
+  }
 
-    this.startUpdateLoop();
+  waitUntilWorldInitialized(): Promise<boolean> {
+    if (this.world) return Promise.resolve(true);
+    return waitUntil(() => this.world !== undefined, { timeout: 10000 });
   }
 
   private startUpdateLoop() {
@@ -214,7 +248,28 @@ export class Room {
 
   dispose() {
     this.log('Disposing...');
+    this.players.clear();
     this.agents.clear();
     this.intervalHandler.clear();
+    this.scriptManager.dispose();
+    this.world?.dispose();
+  }
+
+  callFunction<T>(
+    name: string,
+    arg: T,
+    overrides: Partial<CallFunctionOptions> = {}
+  ) {
+    this.socketIntegrator.callFunction(
+      this,
+      'roomCallFunction',
+      name,
+      arg,
+      overrides
+    );
+  }
+
+  getPlayersAndAgents(): Agent[] {
+    return [...this.players.values(), ...this.agents.values()];
   }
 }
