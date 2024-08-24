@@ -28,8 +28,27 @@ export class VectorBuilder {
     return new VectorBuilder(vector[0], vector[1], vector[2]);
   }
 
+  static fromUnrealString(unrealString: string): VectorBuilder {
+    if (!unrealString) {
+      return VectorBuilder.zero();
+    }
+    const [x, y, z] = unrealString.split(' ');
+    return new VectorBuilder(
+      parseFloat(x.split('=')[1]),
+      parseFloat(y.split('=')[1]),
+      parseFloat(z.split('=')[1])
+    );
+  }
+
   static zero(): VectorBuilder {
     return new VectorBuilder(0, 0, 0);
+  }
+
+  add(vector: VectorBuilder): VectorBuilder {
+    this.x += vector.x;
+    this.y += vector.y;
+    this.z += vector.z;
+    return this;
   }
 
   toUnreal(): VectorBuilder {

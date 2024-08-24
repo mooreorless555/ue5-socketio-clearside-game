@@ -65,10 +65,6 @@ export class GameObject extends Entity {
     );
   }
 
-  getType(): string {
-    return this.type;
-  }
-
   getRoom() {
     return this.room;
   }
@@ -81,6 +77,10 @@ export class GameObject extends Entity {
   lerpPositionTo(entity: Entity, alpha: number = 0.1) {
     this.setPosition(entity.x, entity.y, entity.z);
     this.callSetPosition(entity.getPosition(), alpha);
+  }
+
+  playSound(config: { soundName: string; minPitch: number; maxPitch: number }) {
+    this.callFunction('PlaySound', JSON.stringify(config));
   }
 
   private callSetPosition(position: XYZ, alpha: number) {

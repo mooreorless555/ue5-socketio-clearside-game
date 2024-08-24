@@ -19,6 +19,8 @@ import { ReloadBox } from './game_objects/reload_box';
 import { ServerActions } from './room_actions/server_actions';
 import { ScriptManager } from './script_manager';
 import { waitUntilTrue } from '../utils/fallback';
+import { Callback } from '../utils/types';
+import { CallbackManager } from './callback_manager';
 
 export interface RoomOptions {
   mapScriptName: string;
@@ -26,11 +28,17 @@ export interface RoomOptions {
 
 type EventHandler = (data: any, socket: Socket) => void;
 
+interface BlueprintFunctionMap {
+  PrintText: string;
+  InitializeGameWorld: undefined;
+}
+
 export class Room {
   private eventHandlers = new Map<string, EventHandler[]>();
   private world?: World;
   readonly actions = new ServerActions(this);
   private intervalHandler = new IntervalHandler();
+  private playerAddedCallbackManager = new CallbackManager<Player>();
   private readonly socketIntegrator = new SocketIntegrator(this.roomId);
 
   private readonly scriptManager = new ScriptManager();
@@ -119,6 +127,9 @@ export class Room {
         addedPlayer.socket.emit('playerAdded', agent.toJson());
       });
 
+      // Run playeradded callbacks
+      this.playerAddedCallbackManager.invoke(addedPlayer);
+
       // Set up a disconnect handler for the new player.
       addedPlayer.socket.on('disconnect', () => {
         this.players.delete(addedPlayer.socket.id);
@@ -193,7 +204,7 @@ export class Room {
 
   private initializeGameWorld(socket: Socket) {
     this.log('Initializing game world...');
-    this.callFunction('InitializeGameWorld', '', { sockets: [socket] });
+    this.callFunction('InitializeGameWorld', undefined, { sockets: [socket] });
     this.world = new World(socket, this);
   }
 
@@ -209,6 +220,10 @@ export class Room {
   }
 
   private async updateLoop() {}
+
+  onPlayerAdded(callback: Callback<Player>) {
+    this.playerAddedCallbackManager.add(callback);
+  }
 
   /** Emits the event name and data to all clients connected to this room. */
   emit(eventName: string, data: any) {
@@ -250,14 +265,15 @@ export class Room {
     this.log('Disposing...');
     this.players.clear();
     this.agents.clear();
+    this.playerAddedCallbackManager.clear();
     this.intervalHandler.clear();
     this.scriptManager.dispose();
     this.world?.dispose();
   }
 
-  callFunction<T>(
-    name: string,
-    arg: T,
+  callFunction<K extends keyof BlueprintFunctionMap>(
+    name: K,
+    arg: BlueprintFunctionMap[K],
     overrides: Partial<CallFunctionOptions> = {}
   ) {
     this.socketIntegrator.callFunction(
@@ -271,5 +287,9 @@ export class Room {
 
   getPlayersAndAgents(): Agent[] {
     return [...this.players.values(), ...this.agents.values()];
+  }
+
+  setTimeout(func: () => void, timeout: number) {
+    this.intervalHandler.setTimeout(func, timeout);
   }
 }

@@ -34,6 +34,9 @@ export type SocketIOType = Server<
 >;
 
 const room = new Room('test-room', io, { mapScriptName: 'test_room' });
+const tutorialRoom = new Room('tutorial-room', io, {
+  mapScriptName: 'tutorial_room',
+});
 
 // Listen for connection events
 io.on('connection', (socket) => {
@@ -42,11 +45,11 @@ io.on('connection', (socket) => {
   // Handle room join events
   socket.on('joinRoom', async (roomId) => {
     // TODO: Add a method to get a Room from a room ID.
-    const player = new Player(socket, room);
-    player.setPosition(1509, 532, 92);
+    const player = new Player(socket, tutorialRoom);
+    // player.setPosition(1509, 532, 92);
     await player.joinRoom(roomId);
     // TODO: Remove player from current room
-    room.players.set(socket.id, player);
+    tutorialRoom.players.set(socket.id, player);
   });
 });
 

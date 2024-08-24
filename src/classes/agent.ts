@@ -163,7 +163,7 @@ export class Agent extends Entity {
     }
   }
 
-  rotate(x: number, y: number, z: number) {
+  rotate(x: number, y: number, z: number, force: boolean = false) {
     this.rotX = x;
     this.rotY = y;
     this.rotZ = z;
@@ -173,6 +173,11 @@ export class Agent extends Entity {
     this.rightHandRot.roll = x;
     this.rightHandRot.pitch = y;
     this.rightHandRot.yaw = z;
+    if (force) {
+      this.callFunction('ForceRotation', JSON.stringify({ x, y, z }), {
+        save: true,
+      });
+    }
     this.broadcast('playerRotation', { id: this.id, x, y, z });
   }
 
