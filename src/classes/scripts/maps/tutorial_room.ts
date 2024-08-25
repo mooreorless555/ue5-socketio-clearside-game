@@ -13,12 +13,14 @@ const script: MapScript = {
   async run(room) {
     console.log('RUNNING tutorial room script');
 
-    room.onPlayerAdded(async (player) => {
+    room.players.onAdd(async (key, player) => {
+      console.log('Player added');
       await room.waitUntilWorldInitialized();
-      const playerStarts = await room.getWorld().getPlayerStarts();
-      const playerStart = playerStarts[0];
-      player.forceSetPosition(playerStart.x, playerStart.y, playerStart.z);
+      player.forceSetPosition(180.0, 1370.0, 252.0);
+      console.log('Moving');
       player.rotate(0, 0, -90, true);
+      const targetPoint = await room.getGameObjectById('target_table');
+      room.actions.forEverybody({ save: true }).showMarker(targetPoint);
     });
 
     // Do not continue to execute until first player joins.

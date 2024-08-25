@@ -11,6 +11,7 @@ import { Socket } from 'socket.io';
 import { effect, Signal, signal } from '@preact/signals';
 import { CallFunctionOptions } from './socket_integrator';
 import { HealthComponent } from './components/health_component';
+import { BlasterGlove } from './blaster_glove';
 
 export interface Weapon {
   ammo: Signal<number>;
@@ -29,18 +30,22 @@ export class Agent extends Entity {
   private readonly healthComponent = new HealthComponent(this);
 
   // Aiming information
-  protected leftHandRot = VectorBuilder.zero().asRollPitchYaw();
-  protected rightHandRot = VectorBuilder.zero().asRollPitchYaw();
+  leftHandRot = VectorBuilder.zero().asRollPitchYaw();
+  rightHandRot = VectorBuilder.zero().asRollPitchYaw();
 
   // Glove information
-  private leftGlove: Weapon = {
-    ammo: signal(30),
-    maxAmmo: signal(30),
-  };
-  private rightGlove: Weapon = {
-    ammo: signal(30),
-    maxAmmo: signal(30),
-  };
+  // private leftGlove: Weapon = {
+  //   ammo: signal(30),
+  //   maxAmmo: signal(30),
+  // };
+  // private rightGlove: Weapon = {
+  //   ammo: signal(30),
+  //   maxAmmo: signal(30),
+  // };
+  private equippedLeftGlove = signal(new BlasterGlove(this).attachToLeftHand());
+  private equippedRightGlove = signal(
+    new BlasterGlove(this).attachToRightHand()
+  );
 
   constructor(id: string, room: Room) {
     super(id);
@@ -54,11 +59,17 @@ export class Agent extends Entity {
         .printToConsole(`${this.id} was damaged. New health: ${health}`);
     });
 
-    // Register ammo events for agent.
     effect(() => {
-      this.callFunction('SetLeftGloveAmmo', this.leftGlove.ammo.value);
-      this.callFunction('SetRightGloveAmmo', this.rightGlove.ammo.value);
+      if (this.equippedLeftGlove) {
+        this.callFunction('DoEquipLeftGlove', '');
+      }
     });
+    effect(() => {
+      if (this.equippedRightGlove) {
+        this.callFunction('DoEquipRightGlove', '');
+      }
+    });
+
     // Register projectile hit events
     this.registerOnProjectileHitEvent();
   }
@@ -142,25 +153,16 @@ export class Agent extends Entity {
   getGameObject() {
     return this.room.getWorld().getGameObjectById(this.id);
   }
+  getRoom() {
+    return this.room;
+  }
 
   async shootLeftGlove() {
-    this.callFunction('ShootLeftGlove', undefined);
-    if (this.leftGlove.ammo.value > 0) {
-      this.room
-        .getWorld()
-        .createProjectile(this.getPosition(), this.leftHandRot, 3000, this);
-      this.leftGlove.ammo.value -= 1;
-    }
+    this.equippedLeftGlove.value.shoot();
   }
 
   async shootRightGlove() {
-    this.callFunction('ShootRightGlove', undefined);
-    if (this.rightGlove.ammo.value > 0) {
-      this.room
-        .getWorld()
-        .createProjectile(this.getPosition(), this.rightHandRot, 3000, this);
-      this.rightGlove.ammo.value -= 1;
-    }
+    this.equippedRightGlove.value.shoot();
   }
 
   rotate(x: number, y: number, z: number, force: boolean = false) {

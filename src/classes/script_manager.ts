@@ -12,6 +12,8 @@ export class ScriptManager {
   private readonly scripts = new Map<string, ServerScript>();
   private readonly scriptStopFns = new Map<string, ServerScriptStopFn>();
 
+  constructor(private readonly name: string) {}
+
   async get(scriptPath: string) {
     if (this.scripts.has(scriptPath)) {
       return this.scripts.get(scriptPath);
@@ -33,9 +35,14 @@ export class ScriptManager {
   dispose() {
     this.scriptStopFns.forEach((stopFn) => {
       if (stopFn.stop) {
+        this.log('Stopping scripts.');
         stopFn.stop();
       }
     });
     this.scripts.clear();
+  }
+
+  private log(...args: any[]) {
+    console.log(`[${this.name}]`, ...args);
   }
 }

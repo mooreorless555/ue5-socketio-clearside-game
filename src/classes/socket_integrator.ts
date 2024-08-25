@@ -1,6 +1,7 @@
 import { Socket } from 'socket.io';
 import { Room } from './room';
 import { randomUUID } from 'crypto';
+import { tryCatch } from '../utils/fallback';
 
 export interface CallFunctionOptions {
   save: boolean;
@@ -39,11 +40,20 @@ export class SocketIntegrator {
       callOnOwner: false,
       ...overrides,
     };
+    let formattedArg: any = arg;
+    if (arg === undefined) {
+      formattedArg = undefined;
+    } else {
+      const [error, data] = tryCatch(() => JSON.parse(arg as any));
+      if (error) {
+        formattedArg = JSON.stringify(arg as any);
+      }
+    }
     const payload = {
       id: this.id,
       variableName: options.variableName,
       functionName: name,
-      functionArg: arg,
+      functionArg: formattedArg,
       callOnOwner: options.callOnOwner,
     };
 
@@ -54,7 +64,7 @@ export class SocketIntegrator {
       });
       return;
     }
-
+    console.log(`Calling function: ${name} with arg: ${formattedArg}`);
     room.emit(eventName, payload);
 
     if (options.save) {

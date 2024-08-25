@@ -12,7 +12,11 @@ import { Entity } from '../entity';
 import { GameObject } from '../game_object';
 import waitUntil from 'async-wait-until';
 import { IntervalHandler } from '../interval_handler';
-import { waitUntilTrue, withFallback } from '../../utils/fallback';
+import {
+  tryCatchAsync,
+  waitUntilTrue,
+  withFallback,
+} from '../../utils/fallback';
 import { VectorBuilder } from './vector_builder';
 import { loadObjMesh } from './load_obj_mesh';
 import { mat4, quat, vec3 } from 'gl-matrix';
@@ -126,9 +130,14 @@ export class World {
   }
 
   public async getGameObjectById(id: string): Promise<GameObject | undefined> {
-    const success = await waitUntil(() => this.gameObjects.has(id));
-    if (success) {
+    const [error, data] = await tryCatchAsync(() =>
+      waitUntil(() => this.gameObjects.has(id))
+    );
+    if (data) {
       return this.gameObjects.get(id);
+    }
+    if (error) {
+      this.room.log('Could not find game object with ID: ' + id);
     }
 
     return undefined;
@@ -232,8 +241,8 @@ export class World {
     const { roll, pitch, yaw } = rotation;
 
     // Convert rotation from degrees to radians
-    const pitchRad = pitch * 0.0174;
-    const yawRad = yaw * 0.0174;
+    const pitchRad = pitch * 0.01745;
+    const yawRad = yaw * 0.01745;
 
     const bDirection = VectorBuilder.fromCoords(
       Math.cos(yawRad) * Math.cos(pitchRad),
@@ -266,7 +275,6 @@ export class World {
       ];
       entities
         .filter((entity) => entity.getId() !== projectile.getOwner().getId())
-        .filter((entity) => !entity.getId().includes('PlayerStart'))
         .forEach((entity) => {
           const entityPosition = VectorBuilder.fromXYZ(
             entity.getPosition()

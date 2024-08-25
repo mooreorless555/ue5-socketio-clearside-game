@@ -18,9 +18,10 @@ import { CallFunctionOptions, SocketIntegrator } from './socket_integrator';
 import { ReloadBox } from './game_objects/reload_box';
 import { ServerActions } from './room_actions/server_actions';
 import { ScriptManager } from './script_manager';
-import { waitUntilTrue } from '../utils/fallback';
+import { tryCatchAsync, waitUntilTrue } from '../utils/fallback';
 import { Callback } from '../utils/types';
 import { CallbackManager } from './callback_manager';
+import { GameObject } from './game_object';
 
 export interface RoomOptions {
   mapScriptName: string;
@@ -28,9 +29,11 @@ export interface RoomOptions {
 
 type EventHandler = (data: any, socket: Socket) => void;
 
-interface BlueprintFunctionMap {
+export interface BlueprintFunctionMap {
   PrintText: string;
   InitializeGameWorld: undefined;
+  OnHostJoined: undefined;
+  AddGameObjectFromServer: { id: string };
 }
 
 export class Room {
@@ -41,7 +44,7 @@ export class Room {
   private playerAddedCallbackManager = new CallbackManager<Player>();
   private readonly socketIntegrator = new SocketIntegrator(this.roomId);
 
-  private readonly scriptManager = new ScriptManager();
+  private readonly scriptManager = new ScriptManager('Room');
 
   private host: Player;
 
@@ -63,6 +66,9 @@ export class Room {
     readonly io: SocketIOType,
     private readonly options: RoomOptions
   ) {
+    // Load map script
+    this.loadMapScriptIfPresent();
+
     this.agents.onAdd(async (key, addedAgent) => {
       await this.waitUntilWorldInitialized();
 
@@ -89,7 +95,6 @@ export class Room {
         this.host = addedPlayer;
         this.initializeAsHost(addedPlayer);
         this.initializeGameWorld(addedPlayer.socket);
-        this.loadMapScriptIfPresent();
       }
 
       // Emit playerAdded for the newly added player.
@@ -102,13 +107,13 @@ export class Room {
 
       await this.waitUntilWorldInitialized();
 
-      const playerStarts = await this.getWorld().getPlayerStarts();
-      const playerStart = randomElement(playerStarts);
+      // const playerStarts = await this.getWorld().getPlayerStarts();
+      // const playerStart = randomElement(playerStarts);
 
-      // Move the new player to a player start.
-      addedPlayer.setPositionTo(playerStart);
-      const { x, y, z } = playerStart.getRotation();
-      addedPlayer.rotate(x, y, z);
+      // // Move the new player to a player start.
+      // addedPlayer.setPositionTo(playerStart);
+      // const { x, y, z } = playerStart.getRotation();
+      // addedPlayer.rotate(x, y, z);
 
       // Retroactively add the players already in the room for the added player.
       this.players.forEach((player) => {
@@ -195,6 +200,7 @@ export class Room {
 
   private initializeAsHost(player: Player) {
     this.log('Host is: ' + player.getFullName());
+    this.callFunction('OnHostJoined', undefined);
     this.host = player;
     const hostSocket = player.socket;
     hostSocket.on('agentPosition', ({ id, x, y, z }) => {
@@ -204,19 +210,24 @@ export class Room {
 
   private initializeGameWorld(socket: Socket) {
     this.log('Initializing game world...');
-    this.callFunction('InitializeGameWorld', undefined, { sockets: [socket] });
+    // this.callFunction('InitializeGameWorld', undefined, { sockets: [socket] });
     this.world = new World(socket, this);
   }
 
   waitUntilWorldInitialized(): Promise<boolean> {
     if (this.world) return Promise.resolve(true);
-    return waitUntil(() => this.world !== undefined, { timeout: 10000 });
+    // return waitUntil(() => this.world !== undefined, { timeout: 10000 });
+    return Promise.resolve(true);
   }
 
   private startUpdateLoop() {
     this.intervalHandler.setInterval(() => {
       this.updateLoop();
     }, 1000 / 60);
+  }
+
+  getGameObjectById(id: string): Promise<GameObject> {
+    return this.getWorld().getGameObjectById(id);
   }
 
   private async updateLoop() {}

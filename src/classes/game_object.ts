@@ -6,6 +6,7 @@ import assert from 'assert';
 import { CallFunctionOptions } from './socket_integrator';
 import { ScriptManager } from './script_manager';
 import { ServerScriptArgs } from './scripts/core';
+import { Projectile } from './projectile';
 
 export interface GameObjectCallFunctionOptions extends CallFunctionOptions {
   callOnOwner: boolean;
@@ -32,7 +33,7 @@ export class GameObject extends Entity {
     return gameObject;
   }
 
-  private readonly scriptManager = new ScriptManager();
+  private readonly scriptManager = new ScriptManager('ScriptManager');
 
   extent: XYZ = { x: 0, y: 0, z: 0 };
   constructor(
@@ -54,15 +55,53 @@ export class GameObject extends Entity {
     }
   }
 
-  isWithinBounds(position: XYZ, errorMargin: number = 0) {
-    return (
-      position.x >= this.x - this.extent.x &&
-      position.x <= this.x + this.extent.x &&
-      position.y >= this.y - this.extent.y &&
-      position.y <= this.y + this.extent.y &&
-      position.z >= this.z - this.extent.z &&
-      position.z <= this.z + this.extent.z
+  isWithinBounds(position: XYZ) {
+    const rotation = this.getRotation();
+    // Convert the position to the local space of the bounding box
+    const localPosition = this.rotatePointAroundOrigin(
+      {
+        x: position.x - this.x,
+        y: position.y - this.y,
+        z: position.z - this.z,
+      },
+      -rotation.x,
+      -rotation.y,
+      -rotation.z
     );
+
+    // Check if the local position is within the bounding box
+    return (
+      Math.abs(localPosition.x) <= this.extent.x &&
+      Math.abs(localPosition.y) <= this.extent.y &&
+      Math.abs(localPosition.z) <= this.extent.z
+    );
+  }
+
+  // Helper function to rotate a point around the origin
+  rotatePointAroundOrigin(
+    point: XYZ,
+    rotationX: number,
+    rotationY: number,
+    rotationZ: number
+  ): XYZ {
+    const sinX = Math.sin(rotationX);
+    const cosX = Math.cos(rotationX);
+    const sinY = Math.sin(rotationY);
+    const cosY = Math.cos(rotationY);
+    const sinZ = Math.sin(rotationZ);
+    const cosZ = Math.cos(rotationZ);
+
+    const x =
+      point.x * cosY * cosZ +
+      point.y * (sinX * sinY * cosZ - cosX * sinZ) +
+      point.z * (cosX * sinY * cosZ + sinX * sinZ);
+    const y =
+      point.x * cosY * sinZ +
+      point.y * (sinX * sinY * sinZ + cosX * cosZ) +
+      point.z * (cosX * sinY * sinZ - sinX * cosZ);
+    const z = point.x * -sinY + point.y * sinX * cosY + point.z * cosX * cosY;
+
+    return { x, y, z };
   }
 
   getRoom() {
@@ -81,6 +120,11 @@ export class GameObject extends Entity {
 
   playSound(config: { soundName: string; minPitch: number; maxPitch: number }) {
     this.callFunction('PlaySound', JSON.stringify(config));
+  }
+
+  triggerHitEvent<T extends Entity>(projectile: Projectile<T>): void {
+    if (this.ignoreHitEvents) return;
+    super.triggerHitEvent(projectile);
   }
 
   private callSetPosition(position: XYZ, alpha: number) {

@@ -18,19 +18,42 @@ export function withFallback<T>(
 export function waitUntilTrue(
   func: () => boolean | Promise<boolean>,
   checkInterval = 50,
-  timeoutMs = 2000
+  timeoutMs?: number
 ): Promise<boolean> {
   console.log('Waiting until true...');
   return new Promise((resolve) => {
-    let timeoutId = setTimeout(() => {
-      clearInterval(intervalId);
-      resolve(false);
-    }, timeoutMs);
-    let intervalId = setInterval(() => {
-      if (func() === true) {
+    if (timeoutMs) {
+      let timeoutId = setTimeout(() => {
+        clearInterval(intervalId);
+        resolve(false);
+      }, timeoutMs);
+    }
+    let intervalId = setInterval(async () => {
+      const result = await func();
+      if (!!result) {
         clearInterval(intervalId);
         resolve(true);
       }
     }, checkInterval);
   });
+}
+
+export function tryCatch<T>(fn: () => T): [Error | null, T | null] {
+  try {
+    const data = fn();
+    return [null, data];
+  } catch (error) {
+    return [error instanceof Error ? error : new Error(String(error)), null];
+  }
+}
+
+export async function tryCatchAsync<T>(
+  fn: () => Promise<T>
+): Promise<[Error | null, T | null]> {
+  try {
+    const data = await fn();
+    return [null, data];
+  } catch (error) {
+    return [error instanceof Error ? error : new Error(String(error)), null];
+  }
 }

@@ -6,6 +6,7 @@ import { GameScript } from '../core';
 
 const script: GameScript = {
   async run({ gameObject, args }) {
+    console.log('Running door on hit script.');
     const targetId = args.get('targetId');
     const offset = VectorBuilder.fromUnrealString(args.get('offset'));
     const delay = parseFloat(args.get('delay') ?? 0); // delay in seconds
@@ -25,6 +26,7 @@ const script: GameScript = {
     let isOpening = false;
 
     targetGameObject?.onHit(({ projectile }) => {
+      console.log('Target hit, opening');
       if (!isOpening) {
         isOpening = true;
       } else {

@@ -1,9 +1,10 @@
 import waitUntil from 'async-wait-until';
 import { Agent } from '../agent';
-import { Room } from '../room';
+import { BlueprintFunctionMap, Room } from '../room';
 import { randomUUID } from 'crypto';
 import { AiController } from '../ai/ai_controller';
 import { ClientTargeter } from './client_targeter';
+import { Entity } from '../entity';
 
 export class RoomActions {
   constructor(
@@ -12,9 +13,14 @@ export class RoomActions {
   ) {}
   showPrimaryNotification(config: { title: string; subtitle: string }) {
     this.callFunctionWithTargeter(
-      'ShowPrimaryNotification',
+      'HudShowPrimaryNotification',
       JSON.stringify(config)
     );
+  }
+  showMarker(entity: Entity) {
+    this.callFunctionWithTargeter('HudShowMarker', {
+      entityId: entity.getId(),
+    });
   }
   createAgent(id?: string): Agent {
     const agentId = id ?? randomUUID();
@@ -50,7 +56,7 @@ export class RoomActions {
 
   private async callFunctionWithTargeter(name: string, arg: any) {
     if (this.targeter.getSockets().length === 0) return;
-    this.room.callFunction(name, arg, {
+    this.room.callFunction(name as keyof BlueprintFunctionMap, arg, {
       sockets: this.targeter.getSockets(),
       ...this.targeter.getOverrides(),
     });

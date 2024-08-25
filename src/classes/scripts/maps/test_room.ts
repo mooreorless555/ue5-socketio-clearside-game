@@ -15,7 +15,8 @@ const script: MapScript = {
 
     // Do not continue to execute until first player joins.
     await waitUntilTrue(() => room.players.size > 0);
-    await room.waitUntilWorldInitialized();
+    console.log("It's true");
+    // await room.waitUntilWorldInitialized();
 
     // setTimeout(() => {
     //   room.actions.forEverybody({ save: true }).showPrimaryNotification({

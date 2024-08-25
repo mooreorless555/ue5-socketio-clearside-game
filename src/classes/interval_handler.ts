@@ -31,6 +31,7 @@ export class IntervalHandler {
   }
 
   waitUntil(func: () => boolean) {
+    console.log('Interval waitUntil begun.');
     return new Promise<void>(async (resolve) => {
       this.setInterval(() => {
         const result = func();
